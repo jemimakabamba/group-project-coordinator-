@@ -1,4 +1,4 @@
-"""Single-program Student Group Project Coordinator (LangGraph).
+f"""Single-program Student Group Project Coordinator (LangGraph).
 
 One process holds: the model, two calculator tools, and a human-approval gate.
 No Fleet, no tunnel. Needs ONE model key, e.g. ANTHROPIC_API_KEY.
@@ -95,7 +95,7 @@ def build_agent(model=None):
     if model is None:
         from langchain.chat_models import init_chat_model
 
-        name = os.getenv("MODEL", "anthropic:claude-haiku-5-5")
+        name = os.getenv("MODEL", "groq:llama-3.1-8b-instant")
         extra = {"num_predict": 1200} if name.startswith("ollama") else {"max_tokens": 1200, "timeout": 60, "max_retries": 2}
         model = init_chat_model(name, **extra)
     base = model
