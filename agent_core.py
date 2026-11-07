@@ -1,4 +1,4 @@
-f"""Single-program Student Group Project Coordinator (LangGraph).
+"""Single-program Student Group Project Coordinator (LangGraph).
 
 One process holds: the model, two calculator tools, and a human-approval gate.
 No Fleet, no tunnel. Needs ONE model key, e.g. ANTHROPIC_API_KEY.
