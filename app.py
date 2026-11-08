@@ -67,6 +67,25 @@ def read_document(path):
     return text[:MAX_DOC_CHARS], None
 
 
+def explain_error(e):
+    """Short, safe hint for the visitor. Full details only go to the server log."""
+    t = (type(e).__name__ + " " + str(e)).lower()
+    if "401" in t or "invalid_api_key" in t or "api_key" in t or "authentication" in t:
+        return "The demo's model key was rejected. The owner needs to check the key in the server settings."
+    if "429" in t or "rate" in t or "quota" in t:
+        return "The free model quota is busy right now. Please wait a minute and try again."
+    if "tool_use_failed" in t or "failed to call a function" in t or "400" in t:
+        return "The model stumbled on that request. Please rephrase it or try again."
+    if "timeout" in t or "connection" in t:
+        return "The model service didn't answer in time. Please try again."
+    return "The agent hit an error. Please try again."
+
+
+def retryable(e):
+    t = (type(e).__name__ + " " + str(e)).lower()
+    return "tool_use_failed" in t or "failed to call a function" in t
+
+
 def fresh():
     return {"thread": new_thread(), "turns": 0, "last": 0.0, "pending": None}
 
@@ -108,10 +127,17 @@ def on_send(msg, doc, hist, st):
         global_turns += 1
         st["last"], st["turns"] = time.time(), st["turns"] + 1
         try:
-            reply, st["pending"] = send(agent, st["thread"], msg)
+            try:
+                reply, st["pending"] = send(agent, st["thread"], msg)
+            except Exception as e:
+                if not retryable(e):
+                    raise
+                print("RETRY after:", repr(e)[:300], flush=True)
+                st["thread"] = new_thread()  # fresh thread: a failed call can leave a broken history
+                reply, st["pending"] = send(agent, st["thread"], msg)
         except Exception as e:
-            print("AGENT ERROR:", repr(e), flush=True)
-            reply = "The agent hit an error. Please try again."
+            print("AGENT ERROR:", repr(e)[:800], flush=True)
+            reply = explain_error(e)
     vis, txt = view(st["pending"])
     return "", None, hist + [{"role": "assistant", "content": reply}], st, vis, txt
 
@@ -124,14 +150,19 @@ def on_decide(choice, hist, st):
     try:
         reply, st["pending"] = decide(agent, st["thread"], choice)
     except Exception as e:
-        print("AGENT ERROR:", repr(e), flush=True)
-        reply, st["pending"] = "The agent hit an error. Please try again.", None
+        print("AGENT ERROR:", repr(e)[:800], flush=True)
+        reply, st["pending"] = explain_error(e), None
     label = "You clicked Approve." if choice == "approve" else "You clicked Reject."
     hist = hist + [{"role": "user", "content": label}, {"role": "assistant", "content": reply}]
     return hist, st, *view(st["pending"])
 
 
 WELCOME = [{"role": "assistant", "content": "Hey there! \U0001F44B I'm your project coordinator. Tell me **who's on your team** (and their weekly hours), **what needs doing** (with hours or days) and **your deadline**, and I'll split the work fairly and map out a schedule. Not sure where to start? Tap an example below. \u2728"}]
+
+LIGHT_HEAD = (
+    "<script>try{var u=new URL(window.location);if(u.searchParams.get('__theme')!=='light')"
+    "{u.searchParams.set('__theme','light');window.location.replace(u.toString());}}catch(e){}</script>"
+)
 
 CSS = """
 .gradio-container {max-width: 880px !important; margin: auto !important;
@@ -195,5 +226,6 @@ if __name__ == "__main__":
     demo.queue(max_size=20).launch(
         theme=gr.themes.Soft(primary_hue="indigo", secondary_hue="pink"),
         css=CSS,
+        head=LIGHT_HEAD,
         server_name="0.0.0.0", server_port=int(os.getenv("PORT", "7860")), share=bool(os.environ.get("SHARE"))
     )
