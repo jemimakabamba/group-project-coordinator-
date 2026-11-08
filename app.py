@@ -80,22 +80,35 @@ def on_decide(choice, hist, st):
     return hist, st, *view(st["pending"])
 
 
+WELCOME = [{"role": "assistant", "content": "Hi! Tell me your team (names and weekly hours), your tasks (with hours), and a deadline, and I'll split the work and build a schedule. Try one of the examples below."}]
+
 with gr.Blocks(title="Student Group Project Coordinator") as demo:
+    gr.Markdown("# \U0001F4CB Student Group Project Coordinator")
     gr.Markdown(INTRO)
     st = gr.State()
-    chat = gr.Chatbot(height=460)
+    chat = gr.Chatbot(value=WELCOME, height=460, label="Coordinator")
     with gr.Group(visible=False) as gate:
         gr.Markdown("### Human approval needed: this is exactly what will be recorded")
         plan = gr.Code(language="json", interactive=False)
         with gr.Row():
             ok = gr.Button("Approve", variant="primary")
             no = gr.Button("Reject")
-    box = gr.Textbox(placeholder="Describe your project, team and deadline...", max_length=MAX_CHARS)
+    box = gr.Textbox(label="Your message", placeholder="Describe your project, team and deadline...", max_length=MAX_CHARS)
+    gr.Examples(
+        examples=[
+            "Hello!",
+            "Team: Ana 10h, Ben 10h, Chloe 10h. Tasks: Research 6h, Slides 4h, Report 8h, Code 10h. Split the work fairly.",
+            "Tasks: Research 3 days, Draft 4 days (after Research), Review 2 days (after Draft). Start Nov 9, deadline Nov 20. Will we make it?",
+        ],
+        inputs=box,
+        label="Try an example",
+    )
     box.submit(on_send, [box, chat, st], [box, chat, st, gate, plan])
     ok.click(lambda h, s: on_decide("approve", h, s), [chat, st], [chat, st, gate, plan])
     no.click(lambda h, s: on_decide("reject", h, s), [chat, st], [chat, st, gate, plan])
 
 if __name__ == "__main__":
     demo.queue(max_size=20).launch(
+        theme=gr.themes.Soft(primary_hue="indigo"),
         server_name="0.0.0.0", server_port=int(os.getenv("PORT", "7860")), share=bool(os.environ.get("SHARE"))
     )
