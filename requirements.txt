@@ -2,3 +2,5 @@ langgraph>=1.0
 langchain>=1.0
 langchain-groq
 gradio>=5
+pypdf
+python-docx
