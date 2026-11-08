@@ -4,7 +4,7 @@ One process holds: the model, two calculator tools, and a human-approval gate.
 No Fleet, no tunnel. Needs ONE model key, e.g. ANTHROPIC_API_KEY.
 
 Env vars (all optional except the key for your provider):
-  MODEL    default "anthropic:claude-haiku-5-5"   (e.g. "openai:gpt-4o-mini" also works)
+  MODEL    default "groq:openai/gpt-oss-20b"   (e.g. "openai:gpt-4o-mini" also works)
   ANTHROPIC_API_KEY / OPENAI_API_KEY
 """
 import os
@@ -99,8 +99,10 @@ def build_agent(model=None):
     if model is None:
         from langchain.chat_models import init_chat_model
 
-        name = os.getenv("MODEL", "anthropic:claude-haiku-5-5")
-        extra = {"num_predict": 1200} if name.startswith("ollama") else {"max_tokens": 1200, "timeout": 60, "max_retries": 2}
+        name = os.getenv("MODEL", "groq:openai/gpt-oss-20b")
+        extra = {"num_predict": 1200} if name.startswith("ollama") else {"max_tokens": 2500, "timeout": 60, "max_retries": 2}
+        if name.startswith("groq:openai/gpt-oss"):
+            extra["reasoning_effort"] = "low"  # keep answers fast and inside the token cap
         model = init_chat_model(name, **extra)
     base = model
     llm = model.bind_tools(TOOLS)
